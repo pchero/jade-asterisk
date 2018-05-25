@@ -1,5 +1,5 @@
-# jade-docker
-Jade project on a docker.
+# jade-asterisk
+Jade project on a docker with the Asterisk.
 
 # RUN
 $ docker run -d \
