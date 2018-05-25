@@ -3,7 +3,6 @@ FROM debian:9
 MAINTAINER Sungtae Kim <pchero@gmail.com>
 
 
-
 ## Get all asterisk prerequsites 
 RUN apt update
 RUN apt install -y \
@@ -32,7 +31,11 @@ RUN apt install -y \
   libbsd-dev \
   libzmq5-dev \
   libonig-dev \
-  zlib1g-dev 
+  zlib1g-dev \
+  syslog-ng
+
+# Run syslog
+RUN /etc/init.d/syslog-ng restart
 
 # Install nodejs
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
@@ -82,7 +85,7 @@ RUN ./configure
 RUN make menuselect.makeopts
 
 # enable opus codec module
-RUN menuselect/menuselect --enable codec_opus menuselect.makeopts
+RUN menuselect/menuselect --enable codec_opus --disable chan_sip menuselect.makeopts
 
 # make & make install
 RUN make
@@ -92,42 +95,48 @@ RUN make samples
 
 # Setting ami user
 RUN printf "[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[admin]\nsecret = admin\ndeny = 0.0.0.0/0.0.0.0\npermit = 127.0.0.1/255.255.255.0\nread = all\nwrite = all" > /etc/asterisk/manager.conf
+# Setting http
+RUN printf "[general]\nservername=Asterisk\nenabled=yes\nbindaddr=0.0.0.0\nbindport=8088\ntlsenable=yes\ntlsbindaddr=0.0.0.0:8089\ntlscertfile=/opt/etc/jade.pem" > /etc/asterisk/http.conf
 
 
 ## Run Asterisk
-CMD ["/usr/sbin/asterisk", "-fvvvvvvv"]
+#CMD ["/usr/sbin/asterisk", "-fvvvvvvv", "&"]
 
 
-## Download jade
+## jade
 RUN git clone https://github.com/pchero/jade.git /opt/src/jade
 WORKDIR /opt/src/jade/src
 RUN make
 RUN mv build/jade_backend /opt/bin
 RUN ln -s /opt/etc/jade.pem /opt/bin/jade.pem
-WORKDIR /opt/bin
-RUN ./jade_backend &
 
 
-## Download jade-me
+
+## jade-me
 RUN git clone https://github.com/pchero/jade-me.git /opt/src/jade-me
 WORKDIR /opt/src/jade-me
-RUN npm install
+RUN npm install --quiet
 RUN ln -s /opt/etc/jade.pem /opt/src/jade-me/jade-me.pem
-RUN npm start &
 
 
-## Download jade-admin
+## jade-admin
 RUN git clone https://github.com/pchero/jade-admin.git /opt/src/jade-admin
 WORKDIR /opt/src/jade-admin
-RUN npm install
+RUN npm install --quiet
 RUN ln -s /opt/etc/jade.pem /opt/src/jade-admin/jade-admin.pem
-RUN npm start &
 
 
-## Download jade-manager
+## jade-manager
 RUN git clone https://github.com/pchero/jade-manager.git /opt/src/jade-manager
 WORKDIR /opt/src/jade-manager
-RUN npm install
+RUN npm install --quiet
 RUN ln -s /opt/etc/jade.pem /opt/src/jade-manager/jade-manager.pem
-RUN npm start &
+
+
+## Start script
+RUN printf "#!/bin/bash -x\necho \"Starting script\"\n/usr/sbin/asterisk -fvvvvvvv &\nsleep 30\n/opt/bin/jade_backend &\ncd /opt/src/jade-manager\nnpm start &\ncd /opt/src/jade-admin\nnpm start &\ncd /opt/src/jade-me\nnpm start &\nwait\necho \"Complete\"" > /opt/bin/start.sh
+CMD sh /opt/bin/start.sh
+
+
+
 

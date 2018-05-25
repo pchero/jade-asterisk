@@ -1,2 +1,17 @@
 # jade-docker
 Jade project on a docker.
+
+# RUN
+$ docker run -d \
+  -p 80:80/tcp \
+  -p 443:443/tcp \
+  -p 8081-8089:8081-8089/tcp \
+  -p 8081-8089:8081-8089/udp \
+  -p 4200-4203:4200-4203/tcp \
+  -p 4200-4203:4200-4203/udp \
+  -p 5060:5060/tcp \
+  -p 5060:5060/udp \
+  -p 10000-10500:10000-10500/udp \
+  --name jade-asterisk \
+  -t jade-asterisk
+
